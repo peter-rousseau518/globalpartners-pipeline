@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 640" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+<rect width="760" height="640" fill="#ffffff"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9a9893"/></marker></defs>
+<text x="24" y="28" font-size="15" font-weight="600" fill="#1f1e1d">One daily run moves SQL Server data to Streamlit, all inside AWS</text>
+<text x="24" y="48" font-size="11.5" fill="#6b6a66">Bronze, Silver, Gold on S3 built by Glue PySpark; Athena serves the dashboards</text>
+<rect x="8" y="64" width="744" height="344" rx="8" fill="none" stroke="#e3e1dc" stroke-width="1.25"/>
+<text x="24" y="86" font-size="11.5" font-weight="600" fill="#6b6a66">Data plane · daily batch in one AWS account</text>
+<rect x="8" y="440" width="744" height="176" rx="8" fill="#efeeeb" stroke="#9a9893" stroke-width="1.25"/>
+<text x="24" y="462" font-size="11.5" font-weight="600" fill="#6b6a66">Control plane · orchestrates, secures and monitors</text>
+<text x="392" y="428" font-size="11.5" fill="#6b6a66">starts, retries and monitors every job</text>
+<path d="M240 132H272" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M488 132H520" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M628 168V208" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M520 244H488" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M272 244H240" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M132 280V320" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M240 356H272" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M488 356H520" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M380 440V408" fill="none" stroke="#9a9893" stroke-width="1.25" marker-end="url(#a)"/>
+<rect x="24" y="96" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="36" y="120" font-weight="600" fill="#1f1e1d">RDS for SQL Server</text>
+<text x="36" y="136" font-size="11.5" fill="#6b6a66">Express, private subnet</text>
+<text x="36" y="152" font-size="11.5" fill="#6b6a66">order_items, options, date_dim</text>
+<rect x="272" y="96" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="284" y="120" font-weight="600" fill="#1f1e1d">Glue ingest job (PySpark)</text>
+<text x="284" y="136" font-size="11.5" fill="#6b6a66">JDBC over SSL, incremental</text>
+<text x="284" y="152" font-size="11.5" fill="#6b6a66">watermark: creation_time_utc</text>
+<rect x="520" y="96" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="532" y="120" font-weight="600" fill="#1f1e1d">S3 Bronze</text>
+<text x="532" y="136" font-size="11.5" fill="#6b6a66">raw Parquet, immutable</text>
+<text x="532" y="152" font-size="11.5" fill="#6b6a66">partitioned by ingest_date</text>
+<rect x="520" y="208" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="532" y="232" font-weight="600" fill="#1f1e1d">Glue silver job (PySpark)</text>
+<text x="532" y="248" font-size="11.5" fill="#6b6a66">DQ rules, dedupe, type casts</text>
+<text x="532" y="264" font-size="11.5" fill="#6b6a66">hash card no., quarantine bad</text>
+<rect x="272" y="208" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="284" y="232" font-weight="600" fill="#1f1e1d">S3 Silver (Iceberg)</text>
+<text x="284" y="248" font-size="11.5" fill="#6b6a66">clean, conformed tables</text>
+<text x="284" y="264" font-size="11.5" fill="#6b6a66">MERGE upserts, time travel</text>
+<rect x="24" y="208" width="216" height="72" rx="8" fill="#e6effb" stroke="#2f6fd6" stroke-width="2"/>
+<text x="36" y="232" font-weight="600" fill="#1f1e1d">Glue gold jobs (PySpark)</text>
+<text x="36" y="248" font-size="11.5" fill="#1f1e1d">dims, facts, daily CLV</text>
+<text x="36" y="264" font-size="11.5" fill="#1f1e1d">RFM, churn + 4 dashboard marts</text>
+<rect x="24" y="320" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="36" y="344" font-weight="600" fill="#1f1e1d">S3 Gold (Iceberg)</text>
+<text x="36" y="360" font-size="11.5" fill="#6b6a66">star schema + marts</text>
+<text x="36" y="376" font-size="11.5" fill="#6b6a66">tables in Glue Data Catalog</text>
+<rect x="272" y="320" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="284" y="344" font-weight="600" fill="#1f1e1d">Amazon Athena</text>
+<text x="284" y="360" font-size="11.5" fill="#6b6a66">serverless SQL over Gold</text>
+<text x="284" y="376" font-size="11.5" fill="#6b6a66">KMS-encrypted query results</text>
+<rect x="520" y="320" width="216" height="72" rx="8" fill="none" stroke="#9a9893" stroke-width="1.25"/>
+<text x="532" y="344" font-weight="600" fill="#1f1e1d">Streamlit on EC2</text>
+<text x="532" y="360" font-size="11.5" fill="#6b6a66">6 dashboard pages via Athena</text>
+<text x="532" y="376" font-size="11.5" fill="#6b6a66">marketing, ops, leadership</text>
+<rect x="24" y="472" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="36" y="496" font-weight="600" fill="#1f1e1d">EventBridge Scheduler</text>
+<text x="36" y="512" font-size="11.5" fill="#6b6a66">daily 6:00 AM ET trigger</text>
+<rect x="272" y="472" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="284" y="496" font-weight="600" fill="#1f1e1d">Step Functions</text>
+<text x="284" y="512" font-size="11.5" fill="#6b6a66">runs jobs, retries, reloads</text>
+<rect x="520" y="472" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="532" y="496" font-weight="600" fill="#1f1e1d">DynamoDB run control</text>
+<text x="532" y="512" font-size="11.5" fill="#6b6a66">watermarks + step status</text>
+<rect x="24" y="544" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="36" y="568" font-weight="600" fill="#1f1e1d">CloudWatch + SNS</text>
+<text x="36" y="584" font-size="11.5" fill="#6b6a66">logs, metrics, failure alerts</text>
+<rect x="272" y="544" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="284" y="568" font-weight="600" fill="#1f1e1d">Secrets Manager + KMS</text>
+<text x="284" y="584" font-size="11.5" fill="#6b6a66">rotated creds, encryption keys</text>
+<rect x="520" y="544" width="216" height="56" rx="8" fill="#ffffff" stroke="#9a9893" stroke-width="1.25"/>
+<text x="532" y="568" font-weight="600" fill="#1f1e1d">CI/CD: GitHub Actions</text>
+<text x="532" y="584" font-size="11.5" fill="#6b6a66">deploys code + CloudFormation</text>
+</svg>
