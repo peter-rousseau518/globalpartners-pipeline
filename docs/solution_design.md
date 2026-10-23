@@ -18,13 +18,13 @@ GlobalPartners gets a daily, fully AWS-native batch pipeline: Amazon RDS for SQL
 - No Snowflake, dbt or other external platforms.
 - All transformation and metric logic runs in PySpark on AWS Glue.
 
-**Source volumes:** order\_items 203,519 rows · order\_item\_options 193,017 rows · date\_dim (calendar with holiday flags).
+**Source volumes:** order\_items 203,519 rows · order\_item\_options 193,017 rows · date\_dim 365 rows (2023 only, while orders span April 2020 to February 2024).
 
 ## Architecture
 
 ![Pipeline architecture: data plane and control plane](architecture.png)
 
-*Editable source: [architecture.drawio](architecture.drawio) (open in [diagrams.net](https://app.diagrams.net)) · vector: [architecture.svg](architecture.svg)*
+*Editable source: [architecture.drawio](architecture.drawio) (open in [diagrams.net](https://app.diagrams.net)) · vector: [architecture.svg](architecture.svg) · source data findings: [data_profile.md](data_profile.md)*
 
 Data leaves SQL Server once per day and lands unchanged in Bronze; Silver and Gold can always be rebuilt from Bronze without touching the source. Streamlit never reads S3 directly: it queries Gold through Athena with a read-only IAM role.
 
@@ -59,12 +59,12 @@ The source has no customer or location tables, so dim\_customer is derived from 
 
 | Table | Layer | Grain | Key columns | Feeds |
 | --- | --- | --- | --- | --- |
-| dim\_date | Gold | One row per calendar date | date\_sk (yyyymmdd), date\_key, day\_of\_week, week, month, quarter, year, is\_weekend, is\_holiday, holiday\_name | All time-based views |
+| dim\_date | Gold | One row per calendar date, generated in PySpark from the first to the last order date (source date\_dim covers 2023 only; its holiday names are kept, US federal holidays derived for other years) | date\_sk (yyyymmdd), date\_key, day\_of\_week, week, month, quarter, year, is\_weekend, is\_holiday, holiday\_name | All time-based views |
 | dim\_customer | Gold, SCD Type 2 | One row per user\_id per loyalty-status version | customer\_sk, user\_id, card\_hash (SHA-256 of printed\_card\_number), is\_loyalty, first\_order\_date, valid\_from, valid\_to, is\_current | Segmentation, loyalty |
 | dim\_restaurant | Gold | One row per restaurant\_id | restaurant\_sk, restaurant\_id, first\_order\_date, last\_order\_date | Location performance |
 | dim\_item | Gold | One row per item\_name + item\_category | item\_sk, item\_name, item\_category | Category trends |
 | dim\_channel | Gold | One row per app\_name | channel\_sk, app\_name | Channel filters |
-| fact\_order\_line | Gold | One row per order line (order\_id, lineitem\_id) | date\_sk, hour\_utc, customer\_sk, restaurant\_sk, item\_sk, channel\_sk, item\_quantity, item\_price, item\_gross, option\_addon\_amt, option\_discount\_amt, line\_net\_revenue, is\_discounted | Category and discount analysis |
+| fact\_order\_line | Gold | One row per order line (order\_id, lineitem\_id) | date\_sk, hour\_utc, customer\_sk, restaurant\_sk, item\_sk, channel\_sk, item\_quantity, item\_price, list\_price, item\_discount\_amt, item\_gross, option\_addon\_amt, line\_net\_revenue, is\_discounted | Category and discount analysis |
 | fact\_order | Gold | One row per order\_id | order\_ts\_utc, date\_sk, customer\_sk, restaurant\_sk, channel\_sk, is\_loyalty, line\_count, gross\_revenue, discount\_amt, net\_revenue, has\_discount | Trends, AOV, location, loyalty |
 | **fact\_customer\_clv\_daily** | Gold, periodic snapshot | One row per customer per date, from first order to run date | snapshot\_date, customer\_sk, user\_id, revenue\_on\_day, orders\_to\_date, clv\_to\_date, aov\_to\_date, first\_order\_date, last\_order\_date, days\_since\_last\_order, avg\_gap\_days, spend\_change\_pct, clv\_percentile, clv\_tier, r\_score, f\_score, m\_score, rfm\_segment, churn\_status | **Primary: CLV evolution**, segmentation, churn |
 | mart\_sales\_daily | Gold mart | Date × restaurant × category × channel × daypart | orders, items, gross, discount, net revenue | Sales trends dashboard |
@@ -84,7 +84,7 @@ Revenue is computed once at line level in fact\_order\_line, and every metric re
 \text{line\_net} = \text{item\_price} \times \text{item\_quantity} + \sum (\text{option\_price} \times \text{option\_quantity})
 ```
 
-Gross revenue counts only positive option prices; discount amount is the sum of negative option prices; net = gross + discount.
+Gross revenue = list\_price × item\_quantity + option charges; item discount = (list\_price − item\_price) × item\_quantity; net = gross − discount, which equals line\_net above. Option prices are never negative in this data (0.00 to 8.00), so options are add-on revenue only.
 
 | Metric | Definition | Thresholds (configurable) |
 | --- | --- | --- |
@@ -100,7 +100,9 @@ Gross revenue counts only positive option prices; discount amount is the sum of 
 | Sales trends | Net revenue and orders by day, week, month; by restaurant, category, channel, daypart | Dayparts (local time): Breakfast < 11 · Lunch 11–14 · Afternoon 14–17 · Dinner 17–21 · Late ≥ 21 |
 | Loyalty impact | Members vs non-members: avg spend per customer, AOV, repeat rate (share with ≥ 2 orders), avg CLV | Member = is\_loyalty on the customer's current SCD row |
 | Location ranking | Revenue, AOV, orders per day, 30-day repeat rate per restaurant per month | dense\_rank by revenue; top and bottom 5 flagged |
-| Discount effectiveness | Discounted order = any option\_price < 0. Compare gross, discount, net and order counts for discounted vs full-price orders; orders per customer in the 30 days before vs after their first discounted order | — |
+| Discount effectiveness | Discounted line = item sold at least $0.05 below its usual menu price (list price rule below); discounted order = any discounted line. Compare gross, discount, net and order counts for discounted vs full-price orders; orders per customer in the 30 days before vs after their first discounted order | — |
+
+**List price (usual menu price) rule:** list\_price is the most common item\_price for the same restaurant, item and calendar month; when that group has fewer than 5 lines, the most common price for the restaurant and item across all months is used; ties take the higher price. Using restaurant and month keeps menu price increases and location pricing from showing up as discounts. On the source data this flags 13,743 lines (6.8%) in 12,525 orders (9.6%), about $30,200 of discount, a median of $1.25 (17.5%) off. Counts exclude the development channel and price outliers.
 
 **Daily CLV snapshot, core logic** (backfill mode builds every date; daily mode appends only run\_date from yesterday's snapshot plus today's orders):
 
@@ -149,7 +151,7 @@ Checks run in the Silver job between Bronze and Silver; a blocking failure stops
 | Orphan options | order\_item\_options | Every (order\_id, lineitem\_id) exists in order\_items | Quarantine row |
 | Option quantity | order\_item\_options | option\_quantity > 0 | Quarantine row |
 | Single currency | order\_items | currency = 'USD' | Warn; exclude from revenue until FX rule agreed |
-| Calendar coverage | date\_dim | Every order date has a date\_dim row | Block run, alert |
+| Calendar coverage | date\_dim | Every order date has a dim\_date row | Block run, alert |
 | Boolean domain | order\_items, date\_dim | is\_loyalty, is\_weekend, is\_holiday in (true, false) | Cast; quarantine unknowns |
 | Quarantine threshold | All | Quarantined rows < 1% of batch | Block run above 1%, alert |
 
@@ -210,7 +212,7 @@ One Streamlit app with six pages; each page reads one Gold table through Athena,
 | Sales trends and seasonality | How do sales move by month, season and holiday? | mart\_sales\_daily + dim\_date | Daily / weekly / monthly revenue line; holiday markers; category and location breakdown; daypart × weekday heatmap | Date range, grain, category, restaurant |
 | Loyalty program impact | Do members spend more and come back more? | mart\_loyalty\_monthly | Member vs non-member: AOV, repeat rate, avg CLV, spend per customer, side by side and over time | Month range, channel |
 | Location performance | Which locations lead and what sets them apart? | mart\_location\_monthly | Revenue ranking bars (top and bottom 5 highlighted); AOV vs orders-per-day scatter; repeat-rate column | Month, metric to rank by |
-| Pricing and discounts | How do discounts affect volume and net revenue? | mart\_discount\_monthly | Gross vs discount vs net for discounted and full-price orders; discount share trend; before/after order frequency | Month range, restaurant |
+| Pricing and discounts | How do discounts affect volume and net revenue? | mart\_discount\_monthly | Gross vs discount vs net for discounted and full-price orders; discount share and average % off over time; most-discounted items; before/after order frequency | Month range, restaurant |
 
 ## CI/CD, repository and cost
 
@@ -228,7 +230,7 @@ GitHub Actions tests every pull request and deploys main to AWS through an OIDC 
 globalpartners-pipeline/
 ├── .github/workflows/        ci.yml, deploy.yml
 ├── infra/                    CloudFormation: network, storage-kms, rds, glue, stepfunctions, streamlit-ec2, monitoring
-├── sql_server/               create_tables.sql, load_csv.sql (BULK INSERT)
+├── sql_server/               01_create_tables.sql, 02_load_from_s3.sql (BULK INSERT)
 ├── glue_jobs/
 │   ├── ingest_sqlserver.py
 │   ├── silver_transform.py
@@ -241,7 +243,7 @@ globalpartners-pipeline/
 ├── orchestration/            state_machine.asl.json
 ├── streamlit_app/            app.py, pages/, athena_client.py
 ├── tests/                    unit/, fixtures/
-└── docs/                     solution_design.md, architecture.drawio/.svg/.png, runbook.md
+└── docs/                     solution_design.md, data_profile.md, architecture.drawio/.svg/.png
 ```
 
 **Estimated monthly cost (approximate, us-east-1 list prices; confirm in AWS Pricing Calculator)**
