@@ -60,6 +60,12 @@ WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDQUOTE = '"', FIELDTERMINATOR = ',',
       ROWTERMINATOR = '0x0d0a', CODEPAGE = '65001', TABLOCK);
 GO
 
+-- Drop secondary indexes during the load; rebuilt below. Keeps memory
+-- grants small enough for a db.t3.micro / db.t3.small instance.
+DROP INDEX IF EXISTS ix_order_items_created ON dbo.order_items;
+DROP INDEX IF EXISTS ix_order_items_order   ON dbo.order_items;
+DROP INDEX IF EXISTS ix_options_line        ON dbo.order_item_options;
+
 TRUNCATE TABLE dbo.order_items;
 TRUNCATE TABLE dbo.order_item_options;
 TRUNCATE TABLE dbo.date_dim;
@@ -81,13 +87,15 @@ SELECT app_name,
        NULLIF(REPLACE(item_name, CHAR(10), ' '), ''),
        CAST(item_price AS DECIMAL(10,2)),
        CAST(item_quantity AS INT)
-FROM stg.order_items;
+FROM stg.order_items
+OPTION (MAXDOP 1);
 
 INSERT INTO dbo.order_item_options
       (order_id, lineitem_id, option_group_name, option_name, option_price, option_quantity)
 SELECT order_id, lineitem_id, option_group_name, option_name,
        CAST(option_price AS DECIMAL(10,2)), CAST(option_quantity AS INT)
-FROM stg.order_item_options;
+FROM stg.order_item_options
+OPTION (MAXDOP 1);
 
 -- date_key is dd-mm-yyyy (style 105)
 INSERT INTO dbo.date_dim
@@ -99,6 +107,11 @@ SELECT CONVERT(DATE, date_key, 105),
        CASE UPPER(is_holiday) WHEN 'TRUE' THEN 1 ELSE 0 END,
        NULLIF(holiday_name, '')
 FROM stg.date_dim;
+GO
+
+CREATE INDEX ix_order_items_created ON dbo.order_items (creation_time_utc);
+CREATE INDEX ix_order_items_order   ON dbo.order_items (order_id, lineitem_id);
+CREATE INDEX ix_options_line        ON dbo.order_item_options (order_id, lineitem_id);
 GO
 
 /* ---------------- STEP C: validate against the profiled counts ---------------- */
