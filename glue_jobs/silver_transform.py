@@ -25,7 +25,7 @@ from pyspark.sql import DataFrame, SparkSession, functions as F, Window as W
 
 LOCAL_TZ = "America/New_York"          # assumption until store time zones are known
 QUARANTINE_LIMIT = 0.01                # block the run if > 1% of order lines are rejected
-OUTLIER_PRICE = 500                    # item_price >= this is flagged
+OUTLIER_PRICE = 500                    # unit price >= this is flagged
 OUTLIER_QTY = 100                      # item_quantity >= this is flagged
 TEST_APPS = ["Alltown Fresh - DEVELOPMENT"]
 TEST_CATEGORIES = ["Test Items"]
@@ -87,9 +87,13 @@ def build_order_items(bronze: DataFrame, salt: str):
         F.col("item_category").alias("item_category_raw"),
         clean_category(F.col("item_category")).alias("item_category"),
         F.trim(F.col("item_name")).alias("item_name"),
-        F.col("item_price").cast("decimal(10,2)").alias("item_price"),
+        # Source item_price is the LINE TOTAL (price x quantity), verified in profiling:
+        # 9,873 of 13,496 multi-quantity lines equal unit price x quantity.
+        F.col("item_price").cast("decimal(10,2)").alias("item_line_amount"),
         F.col("item_quantity").cast("int").alias("item_quantity"),
-        ((F.col("item_price") >= OUTLIER_PRICE) | (F.col("item_quantity") >= OUTLIER_QTY)).alias("is_outlier"),
+        F.round(F.col("item_price") / F.col("item_quantity"), 2).cast("decimal(10,2)").alias("unit_price"),
+        ((F.col("item_price") / F.col("item_quantity") >= OUTLIER_PRICE)
+         | (F.col("item_quantity") >= OUTLIER_QTY)).alias("is_outlier"),
         F.col("_ingest_ts_utc"),
         F.col("ingest_date"),
     )

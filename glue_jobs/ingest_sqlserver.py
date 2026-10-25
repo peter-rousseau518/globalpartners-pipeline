@@ -54,6 +54,9 @@ def jdbc_options(glue_context, connection_name):
     url = conf.get("fullUrl") or conf["url"]
     if "databaseName" not in url:
         url = url.rstrip(";") + ";databaseName=GlobalPartners"
+    # Glue connections reject extra URL properties, so add encryption here.
+    if "encrypt=" not in url:
+        url = url.rstrip(";") + ";encrypt=true;trustServerCertificate=true"
     return {"url": url, "user": conf["user"], "password": conf["password"],
             "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"}
 
