@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "Athena",
+      "Effect": "Allow",
+      "Action": ["athena:StartQueryExecution", "athena:GetQueryExecution", "athena:GetQueryResults",
+                 "athena:StopQueryExecution", "athena:GetWorkGroup"],
+      "Resource": "arn:aws:athena:us-east-1:ACCOUNT_ID:workgroup/primary" },
+    { "Sid": "GlueCatalogRead",
+      "Effect": "Allow",
+      "Action": ["glue:GetDatabase", "glue:GetDatabases", "glue:GetTable", "glue:GetTables",
+                 "glue:GetPartition", "glue:GetPartitions"],
+      "Resource": ["arn:aws:glue:us-east-1:ACCOUNT_ID:catalog",
+                   "arn:aws:glue:us-east-1:ACCOUNT_ID:database/gp_gold",
+                   "arn:aws:glue:us-east-1:ACCOUNT_ID:table/gp_gold/*"] },
+    { "Sid": "ReadGoldData",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::gp-lake-ACCOUNT_ID/gold/*" },
+    { "Sid": "ListLake",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::gp-lake-ACCOUNT_ID", "arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1"] },
+    { "Sid": "AthenaResultsAndAppCode",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],
+      "Resource": ["arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1/athena-results/*",
+                   "arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1/streamlit_app/*"] }
+  ]
+}
