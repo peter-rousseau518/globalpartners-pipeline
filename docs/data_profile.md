@@ -36,7 +36,7 @@ Profiled with [`scripts/profile_sources.py`](../scripts/profile_sources.py) on t
 | # | Issue | Count | Handling in the pipeline |
 | --- | --- | --- | --- |
 | 1 | date_dim covers 2023 only; orders run from 2020-04 to 2024-02 | 122,855 lines | Generate `dim_date` in PySpark for the full order range; keep source holiday names for 2023 and derive US federal holidays for other years |
-| 2 | No negative `option_price` values (min is 0.00) | 0 discount rows | The specified discount rule (`option_price < 0`) finds nothing; discount analysis needs another signal (see note below) |
+| 2 | No negative `option_price` values (min is 0.00) | 0 discount rows | Discounts are detected on item price instead: a line sold below its usual menu price (see Discount definition below) |
 | 3 | Exact duplicate option rows | 2,299 | Treated as legitimate repeats (option_quantity is always 1, so a repeated row likely means "added twice"); flagged in DQ audit, not removed |
 | 4 | Orphan options | 28 | Quarantined |
 | 5 | Malformed line: blank lineitem_id, category and name, quantity 0 | 1 | Quarantined |
@@ -50,4 +50,19 @@ Profiled with [`scripts/profile_sources.py`](../scripts/profile_sources.py) on t
 | 13 | Guest orders (no user_id) | 12,669 orders | Included in sales, location and discount metrics; excluded from customer-level CLV, RFM and churn |
 | 14 | Customers whose loyalty flag changes over time | 2,783 users | Handled by SCD Type 2 on `dim_customer` |
 
-**Note on discounts:** Option prices are only add-on charges (0.05 to 8.00). Before building the discount dashboard, confirm what counts as a discount in this data — for example, $0 item prices, items priced below their usual menu price, or orders on the `Alltown Neighborhood Perks` channel.
+## Discount definition
+
+Option prices are only add-on charges (0.05 to 8.00), so a discount is defined as **an item sold below its usual menu price**.
+
+- **List price** = the most common `item_price` for the same restaurant, item and calendar month. If that group has fewer than 5 lines, use the most common price for the restaurant and item across all months. Ties take the higher price.
+- **Discounted line** = `list_price − item_price ≥ $0.05`. **Item discount** = `(list_price − item_price) × item_quantity`.
+- Grouping by restaurant and month keeps menu price increases (e.g. $9.89 → $11.89 over 2021–2023) and location pricing from being counted as discounts.
+
+| Result on source data (excl. development channel and price outliers) | Value |
+| --- | --- |
+| Discounted lines | 13,743 (6.8%) |
+| Discounted orders | 12,525 (9.6%) |
+| Total item discount | ≈ $30,200 |
+| Median discount per line | $1.25 (17.5% off) |
+
+Typical cases: Buffalo Chicken Wrap $9.99 vs $11.99 list, Bacon Egg & Cheese $5.99 vs $7.99, smoothies $7.00 vs $9.00.
