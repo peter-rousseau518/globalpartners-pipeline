@@ -64,7 +64,7 @@ The source has no customer or location tables, so dim\_customer is derived from 
 | dim\_restaurant | Gold | One row per restaurant\_id | restaurant\_sk, restaurant\_id, first\_order\_date, last\_order\_date | Location performance |
 | dim\_item | Gold | One row per item\_name + item\_category | item\_sk, item\_name, item\_category | Category trends |
 | dim\_channel | Gold | One row per app\_name | channel\_sk, app\_name | Channel filters |
-| fact\_order\_line | Gold | One row per order line (order\_id, lineitem\_id) | date\_sk, hour\_utc, customer\_sk, restaurant\_sk, item\_sk, channel\_sk, item\_quantity, item\_price, list\_price, item\_discount\_amt, item\_gross, option\_addon\_amt, line\_net\_revenue, is\_discounted | Category and discount analysis |
+| fact\_order\_line | Gold | One row per order line (order\_id, lineitem\_id) | date\_sk, hour\_utc, customer\_sk, restaurant\_sk, item\_sk, channel\_sk, item\_quantity, unit\_price, list\_price, item\_line\_amount, item\_gross, item\_discount\_amt, option\_addon\_amt, line\_net\_revenue, is\_discounted | Category and discount analysis |
 | fact\_order | Gold | One row per order\_id | order\_ts\_utc, date\_sk, customer\_sk, restaurant\_sk, channel\_sk, is\_loyalty, line\_count, gross\_revenue, discount\_amt, net\_revenue, has\_discount | Trends, AOV, location, loyalty |
 | **fact\_customer\_clv\_daily** | Gold, periodic snapshot | One row per customer per date, from first order to run date | snapshot\_date, customer\_sk, user\_id, revenue\_on\_day, orders\_to\_date, clv\_to\_date, aov\_to\_date, first\_order\_date, last\_order\_date, days\_since\_last\_order, avg\_gap\_days, spend\_change\_pct, clv\_percentile, clv\_tier, r\_score, f\_score, m\_score, rfm\_segment, churn\_status | **Primary: CLV evolution**, segmentation, churn |
 | mart\_sales\_daily | Gold mart | Date × restaurant × category × channel × daypart | orders, items, gross, discount, net revenue | Sales trends dashboard |
@@ -81,10 +81,10 @@ The source has no customer or location tables, so dim\_customer is derived from 
 Revenue is computed once at line level in fact\_order\_line, and every metric reads from it, so all dashboards agree on one number.
 
 ```math
-\text{line\_net} = \text{item\_price} \times \text{item\_quantity} + \sum (\text{option\_price} \times \text{option\_quantity})
+\text{line\_net} = \text{item\_price} + \sum (\text{option\_price} \times \text{option\_quantity})
 ```
 
-Gross revenue = list\_price × item\_quantity + option charges; item discount = (list\_price − item\_price) × item\_quantity; net = gross − discount, which equals line\_net above. Option prices are never negative in this data (0.00 to 8.00), so options are add-on revenue only.
+Source item\_price is the line total (price × quantity), not a unit price: 9,873 of 13,496 multi-quantity lines equal unit price × quantity. So unit\_price = item\_price ÷ item\_quantity and item\_line\_amount = item\_price. Gross = list\_price × item\_quantity on discounted lines (otherwise item\_line\_amount) plus option charges; net = item\_line\_amount + option charges; discount = gross − net. Option prices are never negative in this data (0.00 to 8.00), so options are add-on revenue only.
 
 | Metric | Definition | Thresholds (configurable) |
 | --- | --- | --- |
@@ -100,9 +100,9 @@ Gross revenue = list\_price × item\_quantity + option charges; item discount = 
 | Sales trends | Net revenue and orders by day, week, month; by restaurant, category, channel, daypart | Dayparts (local time): Breakfast < 11 · Lunch 11–14 · Afternoon 14–17 · Dinner 17–21 · Late ≥ 21 |
 | Loyalty impact | Members vs non-members: avg spend per customer, AOV, repeat rate (share with ≥ 2 orders), avg CLV | Member = is\_loyalty on the customer's current SCD row |
 | Location ranking | Revenue, AOV, orders per day, 30-day repeat rate per restaurant per month | dense\_rank by revenue; top and bottom 5 flagged |
-| Discount effectiveness | Discounted line = item sold at least $0.05 below its usual menu price (list price rule below); discounted order = any discounted line. Compare gross, discount, net and order counts for discounted vs full-price orders; orders per customer in the 30 days before vs after their first discounted order | — |
+| Discount effectiveness | Discounted line = unit price at least $0.05 below its usual menu price (list price rule below); discounted order = any discounted line. Compare gross, discount, net and order counts for discounted vs full-price orders; orders per customer in the 30 days before vs after their first discounted order | — |
 
-**List price (usual menu price) rule:** list\_price is the most common item\_price for the same restaurant, item and calendar month; when that group has fewer than 5 lines, the most common price for the restaurant and item across all months is used; ties take the higher price. Using restaurant and month keeps menu price increases and location pricing from showing up as discounts. On the source data this flags 13,743 lines (6.8%) in 12,525 orders (9.6%), about $30,200 of discount, a median of $1.25 (17.5%) off. Counts exclude the development channel and price outliers.
+**List price (usual menu price) rule:** list\_price is the most common unit\_price for the same restaurant, item and calendar month; when that group has fewer than 5 lines, the most common price for the restaurant and item across all months is used; ties take the higher price. Using restaurant and month keeps menu price increases and location pricing from showing up as discounts. On the source data this flags 13,755 lines (6.8%) in 12,530 orders (9.6%), about $22,700 of discount, against $1.88M gross revenue. Counts exclude the development channel and price outliers.
 
 **Daily CLV snapshot, core logic** (backfill mode builds every date; daily mode appends only run\_date from yesterday's snapshot plus today's orders):
 
