@@ -82,7 +82,8 @@ with right:
     fig.update_layout(title="Most-discounted items (total discount $)")
     fig.update_xaxes(tickprefix="$", tickformat=",.0f")
     st.plotly_chart(style(fig, height=340, legend=False), use_container_width=True)
-st.caption(f"Based on {int(w.sum()):,} customers. Before/after compares the same customers in the 30 days on each side of their first discounted order; "
+st.caption(f"Based on {int(w.sum()):,} customers. Before/after compares the same customers "
+           "in the 30 days on each side of their first discounted order; "
            "it shows association, not proof that the discount caused the change.")
 
 bl = dm.groupby("restaurant_id").agg(disc=("discount_amt", "sum"), gross=("gross_revenue", "sum")).reset_index()

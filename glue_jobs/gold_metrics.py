@@ -23,7 +23,9 @@ Job parameters
 """
 import sys
 
-from pyspark.sql import DataFrame, functions as F, Window as W
+from pyspark.sql import DataFrame
+from pyspark.sql import Window as W
+from pyspark.sql import functions as F
 
 RFM_WINDOW_DAYS = 180          # N months for frequency / monetary (~6 months)
 SPEND_WINDOW_DAYS = 30         # spend change: last 30 days vs prior 30 days
@@ -66,7 +68,8 @@ def build_clv_daily(daily: DataFrame, dim_date: DataFrame, as_of) -> DataFrame:
 
     by_user = W.partitionBy("user_id").orderBy("snapshot_date")
     cum = by_user.rowsBetween(W.unboundedPreceding, 0)
-    last_n = lambda n: by_user.rowsBetween(-(n - 1), 0)                    # rows are contiguous days
+    def last_n(n):                                    # rows are contiguous days
+        return by_user.rowsBetween(-(n - 1), 0)
     prior_30 = by_user.rowsBetween(-(2 * SPEND_WINDOW_DAYS - 1), -SPEND_WINDOW_DAYS)
 
     df = (df

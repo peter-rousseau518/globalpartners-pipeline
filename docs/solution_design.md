@@ -90,7 +90,7 @@ Source item\_price is the line total (price × quantity), not a unit price: 9,87
 | --- | --- | --- |
 | CLV to date | Cumulative net revenue per customer up to snapshot\_date | — |
 | CLV tier | percent\_rank of clv\_to\_date across all customers on that snapshot\_date | High ≥ 0.80 · Medium 0.20–0.80 · Low < 0.20 |
-| Recency (R) | Days from last order to snapshot\_date | Scored 1–5 by ntile, 5 = most recent |
+| Recency (R) | Days from last order to snapshot\_date | Scored 1–5 by quintile, 5 = most recent; R, F, M are ranked only among customers with an order in the last N months, everyone else scores 1 |
 | Frequency (F) | Distinct orders in the last N months | N = 6; scored 1–5 |
 | Monetary (M) | Net spend in the last N months | N = 6; scored 1–5 |
 | RFM segment | Rules on R, F, M scores | VIP: R, F, M ≥ 4 · New: F ≤ 2 and R ≥ 4 and first order ≤ 30 days ago · Churn risk: R ≤ 2 and F ≤ 2 · everyone else: Regular |

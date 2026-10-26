@@ -39,7 +39,8 @@ def main(a):
     print("\n=== Values")
     for c, d in [("ITEM_PRICE", oi), ("ITEM_QUANTITY", oi), ("OPTION_PRICE", op), ("OPTION_QUANTITY", op)]:
         x = pd.to_numeric(d[c], errors="coerce")
-        print(f"  {c:16} non-numeric={x.isna().sum()} min={x.min()} max={x.max()} negative={(x < 0).sum()} zero={(x == 0).sum()}")
+        print(f"  {c:16} non-numeric={x.isna().sum()} min={x.min()} max={x.max()} "
+              f"negative={(x < 0).sum()} zero={(x == 0).sum()}")
     print("  item_price >= 500:", (oi.ITEM_PRICE.astype(float) >= 500).sum())
     print("  item_quantity >= 100:", (oi.ITEM_QUANTITY.astype(int) >= 100).sum())
     ts = pd.to_datetime(oi.CREATION_TIME_UTC, utc=True, format="ISO8601", errors="coerce")

@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from lib.data import table
-from lib.ui import SEQUENTIAL, SERIES, NEUTRAL, location_labels, money, page, show_table, style
+from lib.ui import NEUTRAL, SEQUENTIAL, SERIES, location_labels, money, page, show_table, style
 
 page("Sales Trends and Seasonality",
      "What are the monthly and seasonal sales trends, and how do they vary by category and location?")

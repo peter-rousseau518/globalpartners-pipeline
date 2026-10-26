@@ -1,0 +1,19 @@
+{
+  "Name": "gp-daily-pipeline-6am",
+  "Description": "Starts the GlobalPartners daily pipeline at 6:00 AM US Eastern",
+  "ScheduleExpression": "cron(0 6 * * ? *)",
+  "ScheduleExpressionTimezone": "America/New_York",
+  "FlexibleTimeWindow": {
+    "Mode": "OFF"
+  },
+  "State": "ENABLED",
+  "Target": {
+    "Arn": "arn:aws:states:us-east-1:ACCOUNT_ID:stateMachine:gp-daily-pipeline",
+    "RoleArn": "arn:aws:iam::ACCOUNT_ID:role/gp-scheduler-start-pipeline",
+    "Input": "{}",
+    "RetryPolicy": {
+      "MaximumRetryAttempts": 2,
+      "MaximumEventAgeInSeconds": 3600
+    }
+  }
+}

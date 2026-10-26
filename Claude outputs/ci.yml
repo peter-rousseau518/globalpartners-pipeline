@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-java@v4          # PySpark needs a JVM
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check glue_jobs streamlit_app tests scripts
+
+      - name: Unit tests (PySpark transforms)
+        run: pytest -q
+
+      - name: Validate JSON (state machine, IAM policies, schedule)
+        run: |
+          for f in orchestration/*.json streamlit_app/deploy/*.json infra/github/*.json; do
+            python -m json.tool "$f" > /dev/null && echo "ok  $f"
+          done
+
+      - name: Compile dashboard
+        run: python -m py_compile streamlit_app/Overview.py streamlit_app/pages/*.py streamlit_app/lib/*.py

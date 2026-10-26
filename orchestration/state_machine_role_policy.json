@@ -1,0 +1,37 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RunGlueJobs",
+      "Effect": "Allow",
+      "Action": [
+        "glue:StartJobRun",
+        "glue:GetJobRun",
+        "glue:GetJobRuns",
+        "glue:BatchStopJobRun"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-ingest-sqlserver",
+        "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-silver-transform",
+        "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-gold-model",
+        "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-gold-metrics"
+      ]
+    },
+    {
+      "Sid": "StartStopSqlServer",
+      "Effect": "Allow",
+      "Action": [
+        "rds:StartDBInstance",
+        "rds:StopDBInstance",
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "arn:aws:rds:us-east-1:ACCOUNT_ID:db:gp-sqlserver"
+    },
+    {
+      "Sid": "Alerts",
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "arn:aws:sns:us-east-1:ACCOUNT_ID:gp-pipeline-alerts"
+    }
+  ]
+}

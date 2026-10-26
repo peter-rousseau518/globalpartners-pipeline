@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "ReadGlueJobs", "Effect": "Allow", "Action": "glue:GetJob",
+      "Resource": ["arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-ingest-sqlserver",
+                   "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-silver-transform",
+                   "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-gold-model",
+                   "arn:aws:glue:us-east-1:ACCOUNT_ID:job/gp-gold-metrics"] },
+    { "Sid": "ListAssetsBucket", "Effect": "Allow", "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1" },
+    { "Sid": "WriteScriptsAndDashboard", "Effect": "Allow", "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1/scripts/*",
+                   "arn:aws:s3:::aws-glue-assets-ACCOUNT_ID-us-east-1/streamlit_app/*"] },
+    { "Sid": "UpdateWorkflow", "Effect": "Allow", "Action": "states:UpdateStateMachine",
+      "Resource": "arn:aws:states:us-east-1:ACCOUNT_ID:stateMachine:gp-daily-pipeline" }
+  ]
+}

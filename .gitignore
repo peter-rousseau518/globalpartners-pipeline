@@ -4,3 +4,6 @@ __pycache__/
 .env
 .DS_Store
 *.csv
+
+# Local copies with the AWS account number filled in (paste into the console; never commit)
+orchestration/local_*

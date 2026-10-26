@@ -20,7 +20,9 @@ Job parameters
 import sys
 from datetime import date, timedelta
 
-from pyspark.sql import DataFrame, functions as F, Window as W
+from pyspark.sql import DataFrame
+from pyspark.sql import Window as W
+from pyspark.sql import functions as F
 
 MIN_GROUP_LINES = 5          # list price: month group needs >= 5 lines, else all-time
 DISCOUNT_THRESHOLD = 0.05    # $ below list price that counts as a discount
@@ -112,7 +114,8 @@ def build_dim_customer(items: DataFrame):
                    F.max("is_loyalty").alias("is_loyalty"), F.max("card_hash").alias("card_hash")))
     w = W.partitionBy("user_id").orderBy("ts", "order_id")
     v = (orders.withColumn("prev", F.lag("is_loyalty").over(w))
-               .withColumn("new_version", F.when(F.col("prev").isNull() | (F.col("prev") != F.col("is_loyalty")), 1).otherwise(0))
+               .withColumn("new_version",
+                           F.when(F.col("prev").isNull() | (F.col("prev") != F.col("is_loyalty")), 1).otherwise(0))
                .withColumn("version", F.sum("new_version").over(w.rowsBetween(W.unboundedPreceding, 0))))
     versions = (v.groupBy("user_id", "version")
                 .agg(F.min("ts").alias("valid_from_ts"), F.first("is_loyalty").alias("is_loyalty"),
@@ -239,14 +242,17 @@ def build_fact_order(lines: DataFrame):
 # Glue I/O
 # --------------------------------------------------------------------------
 def main():
+    import boto3
     from awsglue.context import GlueContext
     from awsglue.job import Job
     from awsglue.utils import getResolvedOptions
     from pyspark import SparkConf
     from pyspark.context import SparkContext
-
-    args = getResolvedOptions(sys.argv, ["JOB_NAME", "LAKE_BUCKET"])
-    lake = args["LAKE_BUCKET"]
+    wanted = ["JOB_NAME"] + (["LAKE_BUCKET"] if "--LAKE_BUCKET" in sys.argv else [])
+    args = getResolvedOptions(sys.argv, wanted)
+    # Default bucket follows the project naming convention: gp-lake-<account id>
+    lake = args.get("LAKE_BUCKET") or "gp-lake-" + boto3.client("sts").get_caller_identity()["Account"]
+    print(f"GOLD  using lake bucket {lake}; argv={sys.argv[1:]}")
     conf = (SparkConf()
             .set("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
             .set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")

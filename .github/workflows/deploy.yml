@@ -1,0 +1,59 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "glue_jobs/**"
+      - "streamlit_app/**"
+      - "orchestration/state_machine.asl.json"
+  workflow_dispatch:
+
+permissions:
+  id-token: write      # lets GitHub request a short-lived AWS login (OIDC); no stored keys
+  contents: read
+
+concurrency: deploy-aws
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve account
+        run: echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
+
+      - name: Upload Glue job scripts
+        run: |
+          set -euo pipefail
+          deploy() {   # $1 = Glue job name, $2 = script in this repo
+            loc=$(aws glue get-job --job-name "$1" --query 'Job.Command.ScriptLocation' --output text)
+            aws s3 cp "$2" "$loc"
+            echo "deployed $2 -> $1 ($loc)"
+          }
+          deploy gp-ingest-sqlserver glue_jobs/ingest_sqlserver.py
+          deploy gp-silver-transform glue_jobs/silver_transform.py
+          deploy gp-gold-model       glue_jobs/gold_model.py
+          deploy gp-gold-metrics     glue_jobs/gold_metrics.py
+
+      - name: Upload dashboard code
+        run: |
+          aws s3 sync streamlit_app/ "s3://aws-glue-assets-${ACCOUNT_ID}-${AWS_REGION}/streamlit_app/" \
+            --delete --exclude "__pycache__/*" --exclude "*.pyc"
+          echo "Dashboard code uploaded. Reboot the gp-dashboard EC2 instance to pick it up."
+
+      - name: Update Step Functions workflow
+        run: |
+          sed "s/ACCOUNT_ID/${ACCOUNT_ID}/g" orchestration/state_machine.asl.json > /tmp/sm.json
+          aws stepfunctions update-state-machine \
+            --state-machine-arn "arn:aws:states:${AWS_REGION}:${ACCOUNT_ID}:stateMachine:gp-daily-pipeline" \
+            --definition file:///tmp/sm.json

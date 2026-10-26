@@ -1,0 +1,241 @@
+{
+  "Comment": "GlobalPartners daily pipeline: SQL Server -> Bronze -> Silver -> Gold -> Metrics, with retries, alerts, and RDS start/stop",
+  "TimeoutSeconds": 10800,
+  "StartAt": "Start SQL Server",
+  "States": {
+    "Start SQL Server": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:startDBInstance",
+      "Parameters": {
+        "DbInstanceIdentifier": "gp-sqlserver"
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Wait for SQL Server"
+        }
+      ],
+      "Next": "Wait for SQL Server"
+    },
+    "Wait for SQL Server": {
+      "Type": "Wait",
+      "Seconds": 60,
+      "Next": "Check SQL Server"
+    },
+    "Check SQL Server": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:describeDBInstances",
+      "Parameters": {
+        "DbInstanceIdentifier": "gp-sqlserver"
+      },
+      "ResultSelector": {
+        "status.$": "$.DbInstances[0].DbInstanceStatus"
+      },
+      "ResultPath": "$.db",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify failure"
+        }
+      ],
+      "Next": "SQL Server ready?"
+    },
+    "SQL Server ready?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.db.status",
+          "StringEquals": "available",
+          "Next": "Ingest to Bronze"
+        },
+        {
+          "Variable": "$.db.status",
+          "StringEquals": "stopped",
+          "Next": "Start SQL Server"
+        }
+      ],
+      "Default": "Wait for SQL Server"
+    },
+    "Ingest to Bronze": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "gp-ingest-sqlserver"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 300,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify failure"
+        }
+      ],
+      "Next": "Build Silver"
+    },
+    "Build Silver": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "gp-silver-transform"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 300,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify failure"
+        }
+      ],
+      "Next": "Build Gold model"
+    },
+    "Build Gold model": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "gp-gold-model"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 300,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify failure"
+        }
+      ],
+      "Next": "Build Gold metrics"
+    },
+    "Build Gold metrics": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "gp-gold-metrics"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 300,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify failure"
+        }
+      ],
+      "Next": "Stop SQL Server"
+    },
+    "Stop SQL Server": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:stopDBInstance",
+      "Parameters": {
+        "DbInstanceIdentifier": "gp-sqlserver"
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Notify success"
+        }
+      ],
+      "Next": "Notify success"
+    },
+    "Notify success": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:ACCOUNT_ID:gp-pipeline-alerts",
+        "Subject": "GlobalPartners pipeline succeeded",
+        "Message.$": "States.Format('Daily pipeline finished: Bronze, Silver, Gold and metrics refreshed. Execution: {}', $$.Execution.Name)"
+      },
+      "End": true
+    },
+    "Notify failure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:ACCOUNT_ID:gp-pipeline-alerts",
+        "Subject": "GlobalPartners pipeline FAILED",
+        "Message.$": "States.Format('Pipeline failed. Execution: {}. Error: {}. Cause: {}. Fix the cause, then open the execution in Step Functions and click Redrive to resume from the failed step.', $$.Execution.Name, $.error.Error, $.error.Cause)"
+      },
+      "ResultPath": null,
+      "Next": "Stop SQL Server after failure"
+    },
+    "Stop SQL Server after failure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:stopDBInstance",
+      "Parameters": {
+        "DbInstanceIdentifier": "gp-sqlserver"
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Pipeline failed"
+        }
+      ],
+      "Next": "Pipeline failed"
+    },
+    "Pipeline failed": {
+      "Type": "Fail",
+      "Error": "PipelineFailed",
+      "Cause": "A pipeline step failed; see the SNS alert and execution history."
+    }
+  }
+}

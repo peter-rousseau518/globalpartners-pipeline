@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 125
+target-version = "py311"
+extend-exclude = ["local_data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E712"]           # pandas boolean masks use == True on purpose
+
+[tool.ruff.lint.isort]
+known-first-party = ["lib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

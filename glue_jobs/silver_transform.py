@@ -21,7 +21,9 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-from pyspark.sql import DataFrame, SparkSession, functions as F, Window as W
+from pyspark.sql import DataFrame
+from pyspark.sql import Window as W
+from pyspark.sql import functions as F
 
 LOCAL_TZ = "America/New_York"          # assumption until store time zones are known
 QUARANTINE_LIMIT = 0.01                # block the run if > 1% of order lines are rejected
@@ -172,7 +174,8 @@ def run_quality_checks(bronze_items, bronze_opts, bronze_dates, clean_items, rej
     checks = [
         ("order_items", "rows_received", 0 if total_items > 0 else 1, total_items, True),
         ("order_items", "duplicate_order_line_keys", dup_keys, total_items, False),
-        ("order_items", "test_rows_excluded", by_reason.get("test_channel", 0) + by_reason.get("test_item", 0), total_items, False),
+        ("order_items", "test_rows_excluded",
+         by_reason.get("test_channel", 0) + by_reason.get("test_item", 0), total_items, False),
         ("order_items", "invalid_rows_quarantined", non_test, total_items, False),
         ("order_items", "quarantine_under_1pct", 1 if non_test > QUARANTINE_LIMIT * total_items else 0, total_items, True),
         ("order_items", "price_or_qty_outliers_flagged", clean_items.where("is_outlier").count(), total_items, False),
@@ -242,7 +245,8 @@ def main():
         d.cache()
 
     items, rej_items = build_order_items(b_items, args["CARD_HASH_SALT"])
-    items.cache(); rej_items.cache()
+    items.cache()
+    rej_items.cache()
     opts, rej_opts = build_options(b_opts, items, rej_items)
     dates = build_date_dim(b_dates)
 

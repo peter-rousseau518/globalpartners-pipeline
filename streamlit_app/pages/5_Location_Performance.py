@@ -71,10 +71,10 @@ with right:
 st.subheader("Top 5 locations over time")
 top5 = agg.loc[agg["group"] == "Top 5", "location"].tolist()
 fig = go.Figure()
-for i, l in enumerate(top5):
-    s = loc[loc["location"] == l].sort_values("month")
-    fig.add_trace(go.Scatter(x=pd.to_datetime(s["month"] + "-01"), y=s["net_revenue"], mode="lines", name=l,
-                             line_color=SERIES[i], hovertemplate=f"{l}<br>%{{x|%b %Y}}: $%{{y:,.0f}}<extra></extra>"))
+for i, name in enumerate(top5):
+    s = loc[loc["location"] == name].sort_values("month")
+    fig.add_trace(go.Scatter(x=pd.to_datetime(s["month"] + "-01"), y=s["net_revenue"], mode="lines", name=name,
+                             line_color=SERIES[i], hovertemplate=f"{name}<br>%{{x|%b %Y}}: $%{{y:,.0f}}<extra></extra>"))
 fig.update_layout(title="Monthly net revenue, top 5 locations")
 fig.update_yaxes(tickprefix="$", tickformat=",.0f")
 st.plotly_chart(style(fig), use_container_width=True)

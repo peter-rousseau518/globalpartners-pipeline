@@ -1,11 +1,9 @@
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
 from lib.data import customer_curve, table
-from lib.ui import (SEGMENT_COLOR, SEGMENT_ORDER, SEQUENTIAL, SERIES, TIER_COLOR, TIER_ORDER,
-                    money, page, pct, show_table, style)
+from lib.ui import SEGMENT_COLOR, SEGMENT_ORDER, SEQUENTIAL, SERIES, TIER_ORDER, money, page, show_table, style
 
 page("Customer Segmentation",
      "What distinct customer segments emerge from total spend, frequency, recency and loyalty status?")
