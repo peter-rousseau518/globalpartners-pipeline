@@ -159,7 +159,7 @@ DQ results (rule, pass/fail, row counts, run\_id) are written to an Iceberg audi
 
 ## Orchestration, scheduling and failure reload
 
-EventBridge Scheduler starts one Step Functions run every day at 6:00 AM America/New\_York; every step is idempotent for its run\_date, so any failed day can be re-run safely without duplicates.
+EventBridge Scheduler starts one Step Functions run every day at 6:00 AM America/New\_York; every step is idempotent for its run\_date, so any failed day can be re-run safely without duplicates. In the demo account the schedule is defined in code (orchestration/schedule.json) but not enabled, to control cost; runs are started on demand from Step Functions.
 
 **Daily run (Step Functions states)**
 
